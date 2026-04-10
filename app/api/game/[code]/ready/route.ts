@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { kv } from '@vercel/kv'
+import { kv } from '@/lib/kv'
 import { Game } from '@/types/game'
 import { calculateScore } from '@/lib/scoring'
 
