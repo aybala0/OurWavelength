@@ -30,14 +30,19 @@ export async function POST(req: NextRequest) {
     code = generateCode()
   }
 
+  const { displayName, avatar } = body
+  if (!displayName?.trim() || !avatar) {
+    return NextResponse.json({ error: 'Name and avatar required' }, { status: 400 })
+  }
+
   const game: Game = {
     code,
     hostEmail: session.user.email,
     status: 'lobby',
     players: [{
       email: session.user.email,
-      name: session.user.name ?? session.user.email,
-      image: session.user.image ?? undefined,
+      name: displayName.trim(),
+      avatar,
     }],
     spectrumCount,
     assignments: [],

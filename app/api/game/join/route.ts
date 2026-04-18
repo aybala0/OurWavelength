@@ -10,7 +10,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const { code } = await req.json()
+  const { code, displayName, avatar } = await req.json()
+  if (!displayName?.trim() || !avatar) {
+    return NextResponse.json({ error: 'Name and avatar required' }, { status: 400 })
+  }
+
   const key = `game:${String(code).toUpperCase()}`
   const game = await kv.get<Game>(key)
 
@@ -25,8 +29,8 @@ export async function POST(req: NextRequest) {
   if (!alreadyIn) {
     game.players.push({
       email: session.user.email,
-      name: session.user.name ?? session.user.email,
-      image: session.user.image ?? undefined,
+      name: displayName.trim(),
+      avatar,
     })
     await kv.set(key, game, { ex: 60 * 60 * 24 })
   }
