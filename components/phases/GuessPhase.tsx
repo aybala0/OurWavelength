@@ -17,25 +17,24 @@ export function GuessPhase({ game, userEmail }: Props) {
   const assignment = game.assignments[game.currentGuessIndex]
   if (!assignment) return null
 
-  const spectrum = SPECTRUMS.find(s => s.id === assignment.spectrumId)!
+  const spectrum    = SPECTRUMS.find(s => s.id === assignment.spectrumId)!
   const isClueGiver = assignment.playerEmail === userEmail
-  const hasReadied = assignment.readyPlayers.includes(userEmail)
+  const hasReadied  = assignment.readyPlayers.includes(userEmail)
+  const readyCount  = assignment.readyPlayers.length
+  const totalCount  = game.players.length
+  const isLast      = game.currentGuessIndex + 1 >= game.assignments.length
 
   // Local dial position for smooth dragging
-  const [localPos, setLocalPos] = useState(assignment.dialPosition)
-  const isDraggingRef = useRef(false)
-  const dragResetRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const lastSentRef = useRef(assignment.dialPosition)
+  const [localPos, setLocalPos]   = useState(assignment.dialPosition)
+  const isDraggingRef             = useRef(false)
+  const dragResetRef              = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const debounceRef               = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const lastSentRef               = useRef(assignment.dialPosition)
 
-  // Sync from server when not actively dragging
   useEffect(() => {
-    if (!isDraggingRef.current) {
-      setLocalPos(assignment.dialPosition)
-    }
+    if (!isDraggingRef.current) setLocalPos(assignment.dialPosition)
   }, [assignment.dialPosition])
 
-  // Reset local state when moving to a new spectrum
   useEffect(() => {
     isDraggingRef.current = false
     setLocalPos(assignment.dialPosition)
@@ -43,7 +42,9 @@ export function GuessPhase({ game, userEmail }: Props) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [game.currentGuessIndex])
 
-  async function sendDial(pos: number) {
+  function handleDialChange(pos: number) {
+    isDraggingRef.current = true
+    setLocalPos(pos)
     if (debounceRef.current) clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(async () => {
       if (Math.abs(pos - lastSentRef.current) < 1) return
@@ -54,17 +55,8 @@ export function GuessPhase({ game, userEmail }: Props) {
         body: JSON.stringify({ position: pos }),
       })
     }, 120)
-  }
-
-  function handleDialChange(pos: number) {
-    isDraggingRef.current = true
-    setLocalPos(pos)
-    sendDial(pos)
-    // Allow server sync again after 600ms of inactivity
     if (dragResetRef.current) clearTimeout(dragResetRef.current)
-    dragResetRef.current = setTimeout(() => {
-      isDraggingRef.current = false
-    }, 600)
+    dragResetRef.current = setTimeout(() => { isDraggingRef.current = false }, 600)
   }
 
   async function pressReady() {
@@ -75,139 +67,81 @@ export function GuessPhase({ game, userEmail }: Props) {
     await fetch(`/api/game/${game.code}/next`, { method: 'POST' })
   }
 
-  const score = assignment.revealed
-    ? calculateScore(assignment.targetPosition, assignment.dialPosition)
-    : null
-  const zone = assignment.revealed
-    ? getZone(assignment.targetPosition, assignment.dialPosition)
-    : null
-
-  const progress = `${game.currentGuessIndex + 1} / ${game.assignments.length}`
-  const isLast = game.currentGuessIndex + 1 >= game.assignments.length
+  const score = assignment.revealed ? calculateScore(assignment.targetPosition, assignment.dialPosition) : null
+  const zone  = assignment.revealed ? getZone(assignment.targetPosition, assignment.dialPosition) : null
 
   return (
-    <div className="max-w-xl mx-auto p-5 space-y-4">
+    <div className="flex flex-col items-center min-h-[calc(100vh-56px)] px-4 py-4 gap-4">
 
-      {/* Progress + running score */}
-      <div className="flex items-center justify-between text-sm text-slate-500">
-        <span>Spectrum {progress}</span>
-        <span>
-          <span className="text-violet-400 font-semibold">{game.totalScore}</span>
-          <span className="text-slate-600"> pts</span>
-          {game.currentGuessIndex > 0 && (
-            <span className="text-slate-600"> / {game.currentGuessIndex * 4} possible</span>
-          )}
-        </span>
+      {/* Compact top bar */}
+      <div className="w-full max-w-md flex justify-between text-xs text-slate-500">
+        <span>Spectrum {game.currentGuessIndex + 1}/{game.assignments.length}</span>
+        <span><span className="text-violet-400 font-semibold">{game.totalScore}</span> pts</span>
       </div>
 
-      {/* Clue card */}
-      <div className="bg-slate-800 border border-slate-700 rounded-2xl p-5 space-y-4">
-        {/* Clue giver */}
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-violet-800 flex items-center justify-center font-bold text-sm shrink-0">
-            {assignment.playerName[0]?.toUpperCase()}
-          </div>
-          <div className="flex-1">
-            <p className="font-semibold">{assignment.playerName}</p>
-            <p className="text-xs text-slate-500">gave the clue</p>
-          </div>
-          {isClueGiver && (
-            <span className="text-xs bg-violet-900/40 border border-violet-800 text-violet-400 px-2 py-1 rounded-full">
-              that&apos;s you!
-            </span>
-          )}
-        </div>
-
-        {/* Spectrum labels */}
-        <div className="flex justify-between text-sm font-semibold text-slate-300 px-1">
-          <span>{spectrum.left}</span>
-          <span className="text-slate-600 font-normal text-xs">← spectrum →</span>
-          <span>{spectrum.right}</span>
-        </div>
-
-        {/* Clue */}
-        <div className="bg-slate-700/60 rounded-xl py-3 px-4 text-center">
-          <p className="text-xs text-slate-500 mb-1">Clue</p>
-          <p className="text-2xl font-bold">{assignment.clue}</p>
-        </div>
-      </div>
-
-      {/* Dial */}
-      <div className="bg-slate-800 border border-slate-700 rounded-2xl p-5 space-y-3">
-        <div className="flex justify-between text-sm font-semibold text-slate-300">
+      {/* Spectrum labels + dial */}
+      <div className="w-full max-w-md">
+        <div className="flex justify-between text-sm font-semibold text-slate-300 mb-1 px-1">
           <span>{spectrum.left}</span>
           <span>{spectrum.right}</span>
         </div>
-
-        <div className="flex justify-center">
-          <Dial
-            position={assignment.revealed ? assignment.dialPosition : localPos}
-            onChange={!isClueGiver && !assignment.revealed ? handleDialChange : undefined}
-            disabled={isClueGiver || assignment.revealed}
-            targetPosition={assignment.revealed ? assignment.targetPosition : undefined}
-            size={280}
-          />
-        </div>
-
-        {isClueGiver && !assignment.revealed && (
-          <p className="text-center text-xs text-slate-600">
-            You gave the clue — sit back and watch
-          </p>
-        )}
-
-        {/* Reveal score */}
-        {assignment.revealed && score !== null && zone && (
-          <div
-            className="text-center py-3 rounded-xl font-bold text-lg border"
-            style={{
-              backgroundColor: ZONE_COLORS[zone] + '20',
-              borderColor: ZONE_COLORS[zone] + '60',
-              color: ZONE_COLORS[zone],
-            }}
-          >
-            {ZONE_LABELS[zone]}
-          </div>
-        )}
+        <Dial
+          className="w-full"
+          position={assignment.revealed ? assignment.dialPosition : localPos}
+          onChange={!isClueGiver && !assignment.revealed ? handleDialChange : undefined}
+          disabled={isClueGiver || assignment.revealed}
+          targetPosition={assignment.revealed ? assignment.targetPosition : undefined}
+        />
       </div>
 
-      {/* Ready / Next controls */}
-      {!assignment.revealed ? (
-        <div className="space-y-3">
-          {/* Who's ready */}
-          <div className="flex flex-wrap gap-2">
-            {game.players.map(p => {
-              const ready = assignment.readyPlayers.includes(p.email)
-              return (
-                <span
-                  key={p.email}
-                  className={`text-xs px-2.5 py-1 rounded-full border ${
-                    ready
-                      ? 'bg-emerald-900/30 border-emerald-800 text-emerald-400'
-                      : 'bg-slate-800 border-slate-700 text-slate-500'
-                  }`}
-                >
-                  {p.name}{p.email === userEmail ? ' (you)' : ''} {ready ? '✓' : '...'}
-                </span>
-              )
-            })}
-          </div>
+      {/* Clue + attribution */}
+      <div className="w-full max-w-md text-center space-y-1">
+        <p className="text-4xl font-bold tracking-tight">{assignment.clue}</p>
+        <p className="text-sm text-slate-500">
+          clue by <span className="text-slate-300">{assignment.playerName}</span>
+          {isClueGiver && <span className="text-violet-400"> (you)</span>}
+        </p>
+      </div>
 
-          <button
-            onClick={pressReady}
-            disabled={hasReadied}
-            className="w-full bg-violet-600 hover:bg-violet-700 disabled:bg-violet-900/50 disabled:text-violet-700 text-white font-semibold py-3 rounded-xl transition-colors"
-          >
-            {hasReadied ? 'Waiting for others...' : 'Ready to Reveal'}
-          </button>
-        </div>
-      ) : (
-        <button
-          onClick={nextSpectrum}
-          className="w-full bg-violet-600 hover:bg-violet-700 text-white font-semibold py-3 rounded-xl transition-colors"
+      {/* Zone result after reveal */}
+      {assignment.revealed && score !== null && zone && (
+        <div
+          className="w-full max-w-md text-center py-3 rounded-2xl font-bold text-xl border"
+          style={{
+            backgroundColor: ZONE_COLORS[zone] + '22',
+            borderColor:     ZONE_COLORS[zone] + '66',
+            color:           ZONE_COLORS[zone],
+          }}
         >
-          {isLast ? 'See Final Results →' : 'Next Spectrum →'}
-        </button>
+          {ZONE_LABELS[zone]}
+        </div>
       )}
+
+      {/* Spacer pushes controls to bottom */}
+      <div className="flex-1" />
+
+      {/* Controls */}
+      <div className="w-full max-w-md space-y-3 pb-4">
+        {!assignment.revealed ? (
+          <>
+            <p className="text-center text-slate-600 text-sm">{readyCount}/{totalCount} ready</p>
+            <button
+              onClick={pressReady}
+              disabled={hasReadied}
+              className="w-full bg-violet-600 hover:bg-violet-700 disabled:bg-violet-900/40 disabled:text-violet-700 text-white font-semibold py-3.5 rounded-2xl transition-colors text-base"
+            >
+              {hasReadied ? 'Waiting for others...' : 'Ready to Reveal'}
+            </button>
+          </>
+        ) : (
+          <button
+            onClick={nextSpectrum}
+            className="w-full bg-violet-600 hover:bg-violet-700 text-white font-semibold py-3.5 rounded-2xl transition-colors text-base"
+          >
+            {isLast ? 'See Final Results →' : 'Next Spectrum →'}
+          </button>
+        )}
+      </div>
     </div>
   )
 }

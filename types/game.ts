@@ -3,7 +3,7 @@ export type GameStatus = 'lobby' | 'clue-giving' | 'guessing' | 'summary'
 export interface Player {
   email: string
   name: string
-  image?: string
+  avatar: string // avatarId e.g. 'cat'
 }
 
 export interface Assignment {
