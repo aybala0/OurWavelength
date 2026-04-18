@@ -16,15 +16,20 @@ interface Profile {
 }
 
 export function LobbyClient({ user }: { user: User }) {
-  const router = useRouter()
   const [profile, setProfile] = useState<Profile | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
 
   if (!profile) {
     return <ProfileSetup onDone={setProfile} userEmail={user.email} />
   }
 
+  return <LobbyScreen profile={profile} onChangeProfile={() => setProfile(null)} />
+}
+
+// ── Lobby screen (separate component so hooks are never conditional) ──
+function LobbyScreen({ profile, onChangeProfile }: { profile: Profile; onChangeProfile: () => void }) {
+  const router = useRouter()
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
   const [spectrumCount, setSpectrumCount] = useState(2)
   const [joinCode, setJoinCode] = useState('')
 
@@ -70,7 +75,7 @@ export function LobbyClient({ user }: { user: User }) {
         <div className="flex items-center gap-3">
           <span className="text-2xl">{profile.avatar}</span>
           <span className="text-slate-300 text-sm font-medium">{profile.displayName}</span>
-          <button onClick={() => setProfile(null)} className="text-xs text-slate-600 hover:text-slate-400 transition-colors">
+          <button onClick={onChangeProfile} className="text-xs text-slate-600 hover:text-slate-400 transition-colors">
             change
           </button>
           <span className="text-slate-700">·</span>
@@ -88,7 +93,6 @@ export function LobbyClient({ user }: { user: User }) {
             </div>
           )}
 
-          {/* Create */}
           <div className="bg-slate-800 border border-slate-700 rounded-2xl p-6 space-y-4">
             <h2 className="text-xl font-semibold">Create a game</h2>
             <div>
@@ -110,7 +114,6 @@ export function LobbyClient({ user }: { user: User }) {
             </button>
           </div>
 
-          {/* Join */}
           <div className="bg-slate-800 border border-slate-700 rounded-2xl p-6 space-y-4">
             <h2 className="text-xl font-semibold">Join a game</h2>
             <input type="text" value={joinCode}
@@ -147,8 +150,7 @@ function ProfileSetup({ onDone, userEmail }: { onDone: (p: Profile) => void; use
         <p className="text-slate-400">Set up your profile to play</p>
       </div>
 
-      <div className="w-full max-w-md bg-slate-800 border border-slate-700 rounded-2xl p-6 space-y-6">
-        {/* Name */}
+      <div className="w-full max-w-lg bg-slate-800 border border-slate-700 rounded-2xl p-6 space-y-6">
         <div className="space-y-2">
           <label className="text-sm font-medium text-slate-300">Your name</label>
           <input
@@ -162,18 +164,17 @@ function ProfileSetup({ onDone, userEmail }: { onDone: (p: Profile) => void; use
           />
         </div>
 
-        {/* Avatar picker */}
         <div className="space-y-2">
-          <label className="text-sm font-medium text-slate-300">Pick your animal</label>
-          <div className="grid grid-cols-6 gap-2">
+          <label className="text-sm font-medium text-slate-300">Pick your avatar</label>
+          <div className="grid grid-cols-9 gap-1.5 max-h-56 overflow-y-auto pr-1">
             {AVATARS.map(emoji => (
               <button
                 key={emoji}
                 onClick={() => setAvatar(emoji)}
-                className={`aspect-square rounded-xl text-3xl flex items-center justify-center transition-all ${
+                className={`aspect-square rounded-lg text-2xl flex items-center justify-center transition-all ${
                   avatar === emoji
-                    ? 'bg-violet-600/40 ring-2 ring-violet-400 scale-110'
-                    : 'bg-slate-700 hover:bg-slate-600 opacity-70 hover:opacity-100 hover:scale-105'
+                    ? 'bg-violet-600/50 ring-2 ring-violet-400 scale-110'
+                    : 'bg-slate-700 hover:bg-slate-600 opacity-60 hover:opacity-100 hover:scale-105'
                 }`}
               >
                 {emoji}
@@ -182,10 +183,9 @@ function ProfileSetup({ onDone, userEmail }: { onDone: (p: Profile) => void; use
           </div>
         </div>
 
-        {/* Preview + confirm */}
         <div className="flex items-center gap-4 pt-2">
           <div className="w-14 h-14 rounded-full bg-slate-700 border-2 border-slate-600 shrink-0 flex items-center justify-center text-3xl">
-            {avatar || <span className="text-slate-500 text-2xl">?</span>}
+            {avatar || <span className="text-slate-500 text-xl">?</span>}
           </div>
           <div className="flex-1">
             <p className="font-semibold text-lg">{name || <span className="text-slate-500 font-normal">your name</span>}</p>
